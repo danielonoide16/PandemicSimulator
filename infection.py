@@ -1,9 +1,10 @@
 import random
+import networkx as nx
 
 class Infection:
 
-    def __init__(self, edge_list: dict, start_node):
-        self.graph = edge_list
+    def __init__(self, graph: nx.Graph, start_node):
+        self.graph = graph
         self.t = 0
 
         self.infected = {start_node}   # all infected
@@ -22,11 +23,9 @@ class Infection:
         newly_infected_count = 0
 
         for node in self.currently_infected:
-            neighbors = self.graph.get(node, [])
+            print("\nNode ", node, " is infecting...")
 
-            print("Node ", node, " is infecting...")
-
-            for neighbor in neighbors:
+            for neighbor in self.graph.neighbors(node):
 
                 if neighbor in self.infected:
                     print(neighbor, " is already infected")
@@ -49,4 +48,4 @@ class Infection:
 
 
     def get_healthy_vertices(self):
-        return set(self.graph.keys()) - self.infected
+        return set(self.graph.nodes()) - self.infected

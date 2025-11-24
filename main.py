@@ -1,11 +1,9 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-from graph import Graph
 from infection import Infection
 
 
@@ -13,17 +11,22 @@ from infection import Infection
 class PrintCapture:
     def __init__(self, textbox: ScrolledText):
         self.textbox = textbox
+        self.textbox.config(state=tk.DISABLED)
 
     def write(self, text):
+        self.textbox.config(state=tk.NORMAL)
         self.textbox.insert(tk.END, text)
         self.textbox.see(tk.END)
+        self.textbox.config(state=tk.DISABLED)
 
     def flush(self):
-        self.textbox.delete('1.0' , tk.END)
+        self.textbox.config(state=tk.NORMAL)
+        self.textbox.delete("1.0", tk.END)
+        self.textbox.config(state=tk.DISABLED)
 
 
 # Main GUI
-class PandemicGUI:
+class Pandemic:
 
     def __init__(self, root):
         self.root = root
@@ -44,7 +47,7 @@ class PandemicGUI:
         label = tk.Label(self.root, text="Upload graph file and enter end time", font=("Arial", 14))
         label.pack(pady=10)
 
-        btn_file = tk.Button(self.root, text="Upload File", command=self.load_file)
+        btn_file = tk.Button(self.root, text="Upload file", command=self.load_file)
         btn_file.pack(pady=5)
 
         self.label_file = tk.Label(self.root, text="No file selected")
@@ -65,14 +68,20 @@ class PandemicGUI:
 
     def to_origin_screen(self):
         if not self.file_path:
+            messagebox.showerror("ERROR", "No input file selected")
             return
 
         try:
             self.end_time = int(self.entry_t.get())
+            self.graph = nx.read_edgelist(self.file_path, create_using=nx.Graph())
+        except TypeError:
+            messagebox.showerror("ERROR", "Incorrect file format")
+            return
         except:
+            messagebox.showerror("ERROR", "Incorrect time format")
             return
 
-        self.graph = Graph(self.file_path)
+
         self.show_origin_screen()
 
     # Screen 2
@@ -82,23 +91,18 @@ class PandemicGUI:
         label = tk.Label(self.root, text="Enter starting node", font=("Arial", 14))
         label.pack(pady=10)
 
-        # Pre-render graph
-        self.Gnx = nx.Graph()
-        for node, neighbors in self.graph.edge_list.items():
-            for n in neighbors:
-                self.Gnx.add_edge(node, n)
+        self.pos = nx.spring_layout(self.graph)
 
-        self.pos = nx.spring_layout(self.Gnx)
+        fig = plt.Figure(figsize=(7, 5))
+        self.ax = fig.add_subplot(111) #rows, cols, index
+        nx.draw(self.graph, self.pos, ax=self.ax, with_labels=True, node_color="lightblue")
 
-        fig = plt.Figure(figsize=(5, 4))
-        self.ax = fig.add_subplot(111)
-        nx.draw(self.Gnx, self.pos, ax=self.ax, with_labels=True, node_color="lightblue")
-
+        #interfaz entre tkinter y matplotlib
         self.canvas = FigureCanvasTkAgg(fig, master=self.root)
         self.canvas.get_tk_widget().pack()
 
         tk.Label(self.root, text="Available nodes:").pack()
-        tk.Label(self.root, text=str(list(self.Gnx.nodes))).pack()
+        tk.Label(self.root, text=str(list(self.graph.nodes))).pack()
 
         tk.Label(self.root, text="Start node:").pack()
         self.entry_origin = tk.Entry(self.root)
@@ -111,10 +115,11 @@ class PandemicGUI:
     def start_simulation(self):
         origin = self.entry_origin.get()
 
-        if origin not in self.Gnx.nodes:
+        if origin not in self.graph.nodes:
+            messagebox.showerror("ERROR", "Node not found")
             return
 
-        self.infection = Infection(self.graph.edge_list, origin)
+        self.infection = Infection(self.graph, origin)
 
         self.show_simulation_screen()
 
@@ -124,6 +129,8 @@ class PandemicGUI:
         title = tk.Label(self.root, text="Pandemic Simulation", font=("Arial", 16))
         title.pack(pady=10)
 
+        tk.Button(self.root, text="Restart", command=self.show_upload_screen).pack()
+
         # graph display area
         fig = plt.Figure(figsize=(6, 4))
         self.ax = fig.add_subplot(111)
@@ -132,7 +139,7 @@ class PandemicGUI:
         self.canvas.get_tk_widget().pack()
 
         # log box
-        tk.Label(self.root, text="Simulation Log:").pack()
+        tk.Label(self.root, text="Log:").pack()
         self.log_box = ScrolledText(self.root, width=70, height=10)
         self.log_box.pack(pady=5)
 
@@ -141,15 +148,17 @@ class PandemicGUI:
         import sys
         sys.stdout = self.print_capture
 
+        tk.Button(self.root, text="Flush log", command=self.print_capture.flush).pack()
+
         # status labels
         self.info_label = tk.Label(self.root, text="")
         self.info_label.pack(pady=5)
 
-        # Buttons
+        # buttons
         self.btn_next = tk.Button(self.root, text="Next t", command=self.next_step)
         self.btn_next.pack(pady=10)
 
-        # First draw (t=0)
+        # first draw (t=0)
         self.draw_graph()
 
     # Draw graph colored by infection state
@@ -157,13 +166,13 @@ class PandemicGUI:
         infected = self.infection.infected
 
         node_colors = [
-            "red" if node in infected else "green"
-            for node in self.Gnx.nodes
+            "salmon" if node in infected else "springgreen"
+            for node in self.graph.nodes
         ]
 
         self.ax.clear()
         nx.draw(
-            self.Gnx,
+            self.graph,
             self.pos,
             ax=self.ax,
             with_labels=True,
@@ -172,11 +181,15 @@ class PandemicGUI:
         )
         self.canvas.draw()
 
-    # Advance simulation by one timestep
+    # move the simulation by one timestep
     def next_step(self):
-        if self.infection.t > self.end_time:
+        if self.infection.t >= self.end_time:
             self.btn_next.config(state=tk.DISABLED)
+            messagebox.showinfo("End", "The time limit has been reached")
             return
+        
+
+        print("----- Time t =", self.infection.t + 1, " -----")
 
         newly = self.infection.update()
         healthy = self.infection.get_healthy_vertices()
@@ -188,18 +201,19 @@ class PandemicGUI:
                  f"Infected: {len(self.infection.infected)} | Healthy: {len(healthy)}"
         )
 
-        # End conditions
+        #end conditions
         if newly == 0 or len(healthy) == 0:
             self.btn_next.config(state=tk.DISABLED)
+            messagebox.showinfo("End", "No more infections possible")
+            
 
-    # Utility: clear window
+    #clear window
     def clear(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
 
-# ---------------- RUN APP ----------------
 if __name__ == "__main__":
     root = tk.Tk()
-    app = PandemicGUI(root)
+    app = Pandemic(root)
     root.mainloop()
