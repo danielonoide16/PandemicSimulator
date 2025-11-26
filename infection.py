@@ -19,26 +19,22 @@ class Infection:
         infectors = self.infected.copy()
 
         for node in infectors:
-            print("\nNode ", node, " is infecting...")
 
-            if len([n for n in self.graph.neighbors(node) if n not in self.infected]) == 0: #si no tiene nodos para infectar
-                print("No neighbors to infect\n")
+            healthy_neighbors = [n for n in self.graph.neighbors(node) if n not in self.infected]
+
+            if not healthy_neighbors:
+                print(node, " has no neighbors to infect")
                 continue
 
 
-            for neighbor in self.graph.neighbors(node):
-
-                if neighbor in self.infected:
-                    print(neighbor, " is already infected")
-                    continue  
-                
+            for neighbor in healthy_neighbors:
                 # infection attempt
                 if random.random() >= 0.5:
                     self.infected.add(neighbor)
                     newly_infected_count += 1
-                    print(neighbor, " was infected")
+                    print(neighbor, "was infected by", node)
                 else:
-                    print(neighbor, " was not infected")
+                    print(neighbor, "was NOT infected by", node)
 
         self.t += 1
 
