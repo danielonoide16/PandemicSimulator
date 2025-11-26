@@ -97,7 +97,7 @@ class Pandemic:
         self.ax = fig.add_subplot(111) #rows, cols, index
         nx.draw(self.graph, self.pos, ax=self.ax, with_labels=True, node_color="lightblue")
 
-        #interfaz entre tkinter y matplotlib
+        #interface tkinter and matplotlib
         self.canvas = FigureCanvasTkAgg(fig, master=self.root)
         self.canvas.get_tk_widget().pack()
 
@@ -150,7 +150,7 @@ class Pandemic:
 
         tk.Button(self.root, text="Flush log", command=self.print_capture.flush).pack()
 
-        # status labels
+        # status label
         self.info_label = tk.Label(self.root, text="")
         self.info_label.pack(pady=5)
 
@@ -158,7 +158,7 @@ class Pandemic:
         self.btn_next = tk.Button(self.root, text="Next t", command=self.next_step)
         self.btn_next.pack(pady=10)
 
-        # first draw (t=0)
+        # first draw t = 0
         self.draw_graph()
 
     # Draw graph colored by infection state
@@ -189,7 +189,7 @@ class Pandemic:
             return
         
 
-        print("----- Time t =", self.infection.t + 1, " -----")
+        print("\n----- Time t =", self.infection.t + 1, " -----")
 
         newly = self.infection.update()
         healthy = self.infection.get_healthy_vertices()
@@ -202,7 +202,7 @@ class Pandemic:
         )
 
         #end conditions
-        if newly == 0 or len(healthy) == 0:
+        if len(healthy) == 0:
             self.btn_next.config(state=tk.DISABLED)
             messagebox.showinfo("End", "No more infections possible")
             
